@@ -13,45 +13,65 @@ L.Icon.Default.mergeOptions({
 
 const LocationTracker = () => {
   const [path, setPath] = useState([]);
-  const [currentPosition, setCurrentPosition] = useState(null); // 현재 위치
+  const [currentPosition, setCurrentPosition] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setCurrentPosition([latitude, longitude]); // 초기 위치 설정
-          setPath((prevPath) => [...prevPath, [latitude, longitude]]);
-        },
-        (error) => console.error("위치 추적 중 오류 발생:", error),
-        { enableHighAccuracy: true }
-      );
+    // 위치 권한 요청 및 위치 추적
+    const requestLocation = () => {
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            setCurrentPosition([latitude, longitude]);
+            setPath((prevPath) => [...prevPath, [latitude, longitude]]);
+          },
+          (error) => {
+            if (error.code === error.PERMISSION_DENIED) {
+              setError("위치 권한이 필요합니다. 권한을 허용해주세요.");
+            } else {
+              setError("위치를 가져오는 중 오류가 발생했습니다.");
+            }
+          },
+          { enableHighAccuracy: true }
+        );
 
-      const watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setPath((prevPath) => [...prevPath, [latitude, longitude]]);
-          setCurrentPosition([latitude, longitude]); // 현재 위치 업데이트
-        },
-        (error) => console.error("위치 추적 중 오류 발생:", error),
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
-        }
-      );
+        const watchId = navigator.geolocation.watchPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            setPath((prevPath) => [...prevPath, [latitude, longitude]]);
+            setCurrentPosition([latitude, longitude]);
+          },
+          (error) => {
+            if (error.code === error.PERMISSION_DENIED) {
+              setError("위치 권한이 필요합니다. 권한을 허용해주세요.");
+            } else {
+              setError("위치를 가져오는 중 오류가 발생했습니다.");
+            }
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0,
+          }
+        );
 
-      return () => navigator.geolocation.clearWatch(watchId);
-    } else {
-      console.error("Geolocation을 사용할 수 없습니다.");
-    }
+        return () => navigator.geolocation.clearWatch(watchId);
+      } else {
+        setError("Geolocation을 사용할 수 없습니다.");
+      }
+    };
+
+    requestLocation();
   }, []);
 
   return (
     <div style={{ height: "100vh" }}>
-      {currentPosition ? (
+      {error ? (
+        <p>{error}</p>
+      ) : currentPosition ? (
         <MapContainer
-          center={currentPosition} // 현재 위치를 중심으로 설정
+          center={currentPosition}
           zoom={15}
           style={{ height: "100%", width: "100%" }}
         >
@@ -67,7 +87,7 @@ const LocationTracker = () => {
           )}
         </MapContainer>
       ) : (
-        <p>현재 위치를 가져오는 중...</p>
+        <p>위치를 가져오는 중...</p>
       )}
     </div>
   );
